@@ -21,9 +21,14 @@ TARGET_NAME = "Gmail App PW"
 # email configuration
 SENDER_EMAIL = "derrickyiuct@gmail.com"
 RECEIVER_EMAIL = "derrickyiuct@gmail.com"
-SUBJECT = "{product_name} price went down"
-MESSAGE = "Product {product_name} price went down, here is the link: {url}"
+SUBJECT = "{product_name} price went down."
+MESSAGE = "Product {product_name} price change from {original_price} to {new_price}, {percent_change}\% change. Here is the link: {url}"
 
+WEBSITE_ATTRS_LIST = {
+	'tuxmat': {'class': 'price'},
+	'amazon': {'id': 'corePrice_feature_div'}
+}
+TAG_LIST = ['span', 'div', 'p']
 
 def get_soup(url):
     try:
@@ -63,13 +68,13 @@ def clean(text):
     return text
 
 
-def collect_text(soup, tag, style=None):
+def collect_text(soup, tag, attrs=None):
 	text = ""
 
-	if style == None:
-		container = soup.find_all(tag)
-	else:
-		container = soup.find_all(tag, attrs=eval(style))
+	# if attrs == None:
+	# 	container = soup.find_all(tag)
+	# else:
+	container = soup.find_all(tag, attrs=attrs)
 	
 	for para_text in container:
 		text += f"{para_text.text}\n\n"
@@ -98,11 +103,32 @@ def read_csv():
 	return product_list
 
 
-def price_compare(url, product_name, original_price, tag, style):
+def check_discount(soup, attrs):
+	for tag in TAG_LIST:
+		text = collect_text(soup, tag, attrs)
+
+		if text:
+			return True
+	return False
+
+
+def price_compare(url, product_name, original_price):
 	print(product_name)
 
+	website = url.lower().split('.com')[0].split('.')[1]
+	if not website in WEBSITE_ATTRS_LIST:
+		# do something..
+		pass
+	
 	soup = get_soup(url)
-	text = collect_text(soup, tag, style)
+	
+	attrs = WEBSITE_ATTRS_LIST[website]
+	
+	for tag in TAG_LIST:
+		text = collect_text(soup, tag, attrs)
+		
+		if text:
+			break
 
 	if not text:
 		print("Empty scrapped content...")
@@ -112,26 +138,42 @@ def price_compare(url, product_name, original_price, tag, style):
 
 	for match in matches:
 		if original_price > match:
-			save_file(text, product_name)
+			save_file(match, product_name)
 			print("Price went down!!!")
-			return True
-		
-		print("Price not change...")
-	return False
+			return True, match
+	print("Price not change...")
+	return False, None
+
+
+# TODO: machine learning engine to determine category of product, then search related website	
+
 
 if __name__ == '__main__':
+	flag = False
+	product_dict = {}
 	product_list = read_csv()
 	
 	for product in product_list:
-		product_name, url, original_price, tag, style = product
+		product_name, url, original_price = product
 		
-		price_drop = price_compare(url, product_name, original_price, tag, style)
+		price_drop, new_price = price_compare(url, product_name, original_price)
 
+		# TODO: send one email including all price dropped items instead of one for each
 		if price_drop:
-			password = get_password(TARGET_NAME)
+			flag = True
+			product_dict[product_name] = new_price
+			percent_change = "{:.2f}".format((new_price - original_price) / original_price * 100)
+		
+	if not flag:
+		password = get_password(TARGET_NAME)
 
-			send_mail(SENDER_EMAIL, RECEIVER_EMAIL, SUBJECT.format(product_name=product_name), 
-							MESSAGE.format(product_name=product_name, url=url), password=password)
-			
-		time.sleep(2) # delay 2 seconds between each requests
+		send_mail(
+			SENDER_EMAIL,
+			RECEIVER_EMAIL,
+			SUBJECT.format(product_name=product_name), 
+			MESSAGE.format(product_name=product_name, url=url, new_price=new_price, percent_change=percent_change),
+			password=password
+		)
+		
+	time.sleep(2) # delay 2 seconds between each requests
 		
