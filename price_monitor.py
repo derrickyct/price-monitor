@@ -5,28 +5,26 @@ import sys
 import time
 
 from bs4 import BeautifulSoup
-import pandas as pd
 from selenium import webdriver
 
-from helper.sendEmail import send_mail
-from helper.getCredential import get_password
+from scripts.helper.Email import send_mail
+from scripts.helper.Get_Credential import get_password
+from scripts.helper.Save_File import save_text
+from scripts.helper.Read_File import read_csv
 
 from dotenv import load_dotenv
 
 load_dotenv()
 
-PATH = os.getenv('PATH')
-HEADERS = {
-	'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
-}
-
+# .env variables
+CSV_PATH = os.getenv('CSV_PATH')
 TARGET_NAME = os.getenv('TARGET_NAME')
-
-# email configuration
 SENDER_EMAIL = os.getenv('SENDER_EMAIL')
 RECEIVER_EMAIL = os.getenv('RECEIVER_EMAIL')
 SUBJECT = os.getenv('SUBJECT')
 MESSAGE = os.getenv('MESSAGE')
+DOCS_FOLDER=os.getenv('DOCS_FOLDER')
+TEXT_FOLDER=os.getenv('TEXT_FOLDER')
 
 WEBSITE_ATTRS_LIST = {
 	'tuxmat': {'class': 'price'},
@@ -88,37 +86,11 @@ def clean(text):
 def collect_text(soup, tag, attrs):
 	text = ""
 
-	# if attrs == None:
-	# 	container = soup.find_all(tag)
-	# else:
 	container = soup.find_all(tag, attrs=attrs)
 	
 	for para_text in container:
 		text += f"{para_text.text}\n\n"
 	return text
-
-
-def save_file(text, product_name):
-	print(os.getcwd())
-	if not os.path.exists('./product_price'):
-		os.mkdir('./product_price')
-	
-	fname = f'product_price/{product_name}.txt'.replace(' ', '_')
-	
-	with open(fname, 'a') as writer:
-		writer.write(text)
-
-
-def read_csv():
-	path = PATH
-	product_list = []
-	
-	df = pd.read_csv(path)
-	df = df.reset_index()  # make sure indexes pair with number of rows
-
-	for i, j in df.iterrows():
-		product_list.append(list(j)[1:])
-	return product_list
 
 
 def check_discount(soup, attrs):
@@ -130,10 +102,13 @@ def check_discount(soup, attrs):
 			return True
 	return False
 
+
 @time_count
 def price_compare(url, product_name, original_price):
 	website_attrs_list = WEBSITE_ATTRS_LIST
 	tag_list = TAG_LIST
+	docs_folder = DOCS_FOLDER
+	text_folder = TEXT_FOLDER
 
 	print(product_name)
 
@@ -160,7 +135,7 @@ def price_compare(url, product_name, original_price):
 
 	for match in matches:
 		if original_price > match:
-			save_file(str(match), product_name)
+			save_text(str(match), product_name, docs_folder, text_folder)
 			print("Price went down!!!")
 			return True, match
 		elif original_price < match:
@@ -174,14 +149,16 @@ def price_compare(url, product_name, original_price):
 
 
 if __name__ == '__main__':
+	csv_path = CSV_PATH
 	sender_email = SENDER_EMAIL
 	receiver_email = RECEIVER_EMAIL
+	subject = SUBJECT
 	message = MESSAGE
 	target_name = TARGET_NAME
 
 	flag = False
 	product_dict = {}
-	product_list = read_csv()
+	product_list = read_csv(csv_path)
 	
 	for product in product_list:
 		product_name, url, original_price = product
@@ -206,7 +183,7 @@ if __name__ == '__main__':
 		send_mail(
 			sender_email,
 			receiver_email,
-			SUBJECT.format(product_name=product_name), 
+			subject.format(product_name=product_name), 
 			email_message,
 			password=password
 		)
