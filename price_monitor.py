@@ -11,18 +11,22 @@ from selenium import webdriver
 from helper.sendEmail import send_mail
 from helper.getCredential import get_password
 
+from dotenv import load_dotenv
 
-PATH = "original_price.csv"
+load_dotenv()
+
+PATH = os.getenv('PATH')
 HEADERS = {
 	'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
 }
-TARGET_NAME = "Gmail App PW"
+
+TARGET_NAME = os.getenv('TARGET_NAME')
 
 # email configuration
-SENDER_EMAIL = "derrickyiuct@gmail.com"
-RECEIVER_EMAIL = "derrickyiuct@gmail.com"
-SUBJECT = "{product_name} price went down."
-MESSAGE = "Product {product_name} price change from {original_price} to {new_price}, {percent_change} % change. Here is the link: {url}"
+SENDER_EMAIL = os.getenv('SENDER_EMAIL')
+RECEIVER_EMAIL = os.getenv('RECEIVER_EMAIL')
+SUBJECT = os.getenv('SUBJECT')
+MESSAGE = os.getenv('MESSAGE')
 
 WEBSITE_ATTRS_LIST = {
 	'tuxmat': {'class': 'price'},
