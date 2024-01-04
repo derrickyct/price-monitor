@@ -1,3 +1,3 @@
 @echo off
 cd /d %~dp0
-python ./priceMonitor.py
+python ./price-monitor.py
