@@ -22,7 +22,7 @@ TARGET_NAME = "Gmail App PW"
 SENDER_EMAIL = "derrickyiuct@gmail.com"
 RECEIVER_EMAIL = "derrickyiuct@gmail.com"
 SUBJECT = "{product_name} price went down."
-MESSAGE = "Product {product_name} price change from {original_price} to {new_price}, {percent_change}\% change. Here is the link: {url}"
+MESSAGE = "Product {product_name} price change from {original_price} to {new_price}, {percent_change} % change. Here is the link: {url}"
 
 WEBSITE_ATTRS_LIST = {
 	'tuxmat': {'class': 'price'},
@@ -30,6 +30,19 @@ WEBSITE_ATTRS_LIST = {
 }
 TAG_LIST = ['span', 'div', 'p']
 
+
+def time_count(func):
+	def wrapper(*args, **kwargs):
+		t1 = time.time()
+		res = func(*args, **kwargs)
+		t2 = time.time()-t1
+		print(f'Took {t2} seconds to run {func.__name__}')
+		return res
+	
+	return wrapper
+
+
+@time_count
 def get_soup(url):
     try:
 		# use selenium for js page scrapping
@@ -68,7 +81,7 @@ def clean(text):
     return text
 
 
-def collect_text(soup, tag, attrs=None):
+def collect_text(soup, tag, attrs):
 	text = ""
 
 	# if attrs == None:
@@ -93,9 +106,10 @@ def save_file(text, product_name):
 
 
 def read_csv():
+	path = PATH
 	product_list = []
 	
-	df = pd.read_csv(PATH)
+	df = pd.read_csv(path)
 	df = df.reset_index()  # make sure indexes pair with number of rows
 
 	for i, j in df.iterrows():
@@ -104,27 +118,31 @@ def read_csv():
 
 
 def check_discount(soup, attrs):
-	for tag in TAG_LIST:
+	tag_list = TAG_LIST
+	for tag in tag_list:
 		text = collect_text(soup, tag, attrs)
 
 		if text:
 			return True
 	return False
 
-
+@time_count
 def price_compare(url, product_name, original_price):
+	website_attrs_list = WEBSITE_ATTRS_LIST
+	tag_list = TAG_LIST
+
 	print(product_name)
 
 	website = url.lower().split('.com')[0].split('.')[1]
-	if not website in WEBSITE_ATTRS_LIST:
+	if not website in website_attrs_list:
 		# do something..
 		pass
 	
 	soup = get_soup(url)
 	
-	attrs = WEBSITE_ATTRS_LIST[website]
+	attrs = website_attrs_list[website]
 	
-	for tag in TAG_LIST:
+	for tag in tag_list:
 		text = collect_text(soup, tag, attrs)
 		
 		if text:
@@ -138,9 +156,12 @@ def price_compare(url, product_name, original_price):
 
 	for match in matches:
 		if original_price > match:
-			save_file(match, product_name)
+			save_file(str(match), product_name)
 			print("Price went down!!!")
 			return True, match
+		elif original_price < match:
+			print("Price went up!!!")
+		
 	print("Price not change...")
 	return False, None
 
@@ -149,6 +170,11 @@ def price_compare(url, product_name, original_price):
 
 
 if __name__ == '__main__':
+	sender_email = SENDER_EMAIL
+	receiver_email = RECEIVER_EMAIL
+	message = MESSAGE
+	target_name = TARGET_NAME
+
 	flag = False
 	product_dict = {}
 	product_list = read_csv()
@@ -158,22 +184,26 @@ if __name__ == '__main__':
 		
 		price_drop, new_price = price_compare(url, product_name, original_price)
 
-		# TODO: send one email including all price dropped items instead of one for each
 		if price_drop:
 			flag = True
-			product_dict[product_name] = new_price
-			percent_change = "{:.2f}".format((new_price - original_price) / original_price * 100)
+			percent_change = "{:.2f}".format((new_price - float(original_price)) / float(original_price) * 100)
+			product_dict[product_name] = [url, original_price, new_price, percent_change]
 		
-	if not flag:
-		password = get_password(TARGET_NAME)
+	if flag:
+		message_list = []
+		for name, info in product_dict.items():
+			message_list.append(
+				message.format(product_name=name, url=info[0], original_price=info[1], new_price=str(info[2]), percent_change=str(info[3]))
+			)
+
+		email_message = ' '.join(message_list)
+		password = get_password(target_name)
 
 		send_mail(
-			SENDER_EMAIL,
-			RECEIVER_EMAIL,
+			sender_email,
+			receiver_email,
 			SUBJECT.format(product_name=product_name), 
-			MESSAGE.format(product_name=product_name, url=url, new_price=new_price, percent_change=percent_change),
+			email_message,
 			password=password
 		)
-		
-	time.sleep(2) # delay 2 seconds between each requests
 		
