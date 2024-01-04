@@ -1,4 +1,5 @@
-original_price.csv
-product_price
 env
 .env
+*__pycache__
+original_price.csv
+product_price
