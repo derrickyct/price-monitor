@@ -1,16 +1,15 @@
 import os
-import requests
 import re
 import sys
-import time
-
-from bs4 import BeautifulSoup
-from selenium import webdriver
 
 from scripts.helper.Email import send_mail
 from scripts.helper.Get_Credential import get_password
 from scripts.helper.Save_File import save_text
 from scripts.helper.Read_File import read_csv
+from scripts.helper.Decorator import time_count
+
+import scripts.Api_Call as api_func
+import scripts.Soup_Call as soup_func
 
 from dotenv import load_dotenv
 
@@ -33,95 +32,48 @@ WEBSITE_ATTRS_LIST = {
 TAG_LIST = ['span', 'div', 'p']
 
 
-def time_count(func):
-	def wrapper(*args, **kwargs):
-		t1 = time.time()
-		res = func(*args, **kwargs)
-		t2 = time.time()-t1
-		print(f'Took {t2} seconds to run {func.__name__}')
-		return res
+def get_domain(url):
+	"""
+	Get the domain name.
+	"""
+	website_attrs_list = WEBSITE_ATTRS_LIST
+
+	website = url.lower().split('.com')[0].split('.')[1]
+	if not website in website_attrs_list:
+		# do something..
+		print(f"Url - ${url} not on the list!")
+		sys.exit(1)
 	
-	return wrapper
+	return website
 
 
-@time_count
-def get_soup(url):
-    try:
-		# use selenium for js page scrapping
-        options = webdriver.ChromeOptions()
-        options.add_argument('--headless')
-
-        driver = webdriver.Chrome(options=options)
-        driver.get(url)
-
-        time.sleep(3)
-
-        page = driver.page_source
-        driver.quit()
-
-        soup = BeautifulSoup(page, 'html.parser')
-        
-        return soup
-    except requests.exceptions.HTTPError as errh:
-        print("HTTP Error:", errh)
-    except requests.exceptions.ConnectionError as errc:
-        print("Error Connecting:", errc)
-    except requests.exceptions.Timeout as errt:
-        print("Timeout Error:", errt)
-    except requests.exceptions.RequestException as err:
-        print("Error:", err)
-    return None
-
-
-# function to remove all the html tags and replace some with specific strings
-def clean(text):
-    rep = {"<br>": "\n", "<br/>": "\n", "<li>":  "\n"}
-    rep = dict((re.escape(k), v) for k, v in rep.items()) 
-    pattern = re.compile("|".join(rep.keys()))
-    text = pattern.sub(lambda m: rep[re.escape(m.group(0))], text)
-    text = re.sub('\<(.*?)\>', '', text)
-    return text
-
-
-def collect_text(soup, tag, attrs):
-	text = ""
-
-	container = soup.find_all(tag, attrs=attrs)
-	
-	for para_text in container:
-		text += f"{para_text.text}\n\n"
-	return text
-
-
-def check_discount(soup, attrs):
-	tag_list = TAG_LIST
-	for tag in tag_list:
-		text = collect_text(soup, tag, attrs)
-
-		if text:
-			return True
-	return False
-
-
+# TODO: make price compare function more reusable
 @time_count
 def price_compare(url, product_name, original_price):
-	website_attrs_list = WEBSITE_ATTRS_LIST
+	"""
+	Get updated product price using get_soup function and compare the scrapped price with original price.
+
+	:Args:
+	 - url - URL address of the product page 
+	 - product_name - Name of the product
+	 - original_price - Original price of the product
+	"""
 	tag_list = TAG_LIST
 	docs_folder = DOCS_FOLDER
 	text_folder = TEXT_FOLDER
 
 	print(product_name)
+	domain_name = get_domain(url)
 
-	website = url.lower().split('.com')[0].split('.')[1]
-	if not website in website_attrs_list:
-		# do something..
-		pass
-	
+	# TODO: call api or soup according to the domain name
+		
 	soup = get_soup(url)
 	
-	attrs = website_attrs_list[website]
-	
+
+	attrs = website_attrs_list[domain_name]
+	print(f"attrs: ${attrs}")
 	for tag in tag_list:
+		print(f"tag: ${tag}")
 		text = collect_text(soup, tag, attrs)
 		
 		if text:
@@ -129,6 +81,7 @@ def price_compare(url, product_name, original_price):
 
 	if not text:
 		print("Empty scrapped content...")
+		save_text(str(soup), "new", docs_folder, text_folder)
 		sys.exit(1)
 	
 	matches = [float(match) for match in re.findall(r'\d+\.?\d+', text)]
@@ -147,6 +100,9 @@ def price_compare(url, product_name, original_price):
 
 # TODO: machine learning engine to determine category of product, then search related website	
 
+# TODO: move soup function to a new file
+
+# TODO: create bestbuy api functions 
 
 if __name__ == '__main__':
 	csv_path = CSV_PATH
