@@ -36,14 +36,19 @@ def get_soup(url):
 	return None
 
 
-# function to remove all the html tags and replace some with specific strings
+# 
 def clean(text):
-    rep = {"<br>": "\n", "<br/>": "\n", "<li>":  "\n"}
-    rep = dict((re.escape(k), v) for k, v in rep.items()) 
-    pattern = re.compile("|".join(rep.keys()))
-    text = pattern.sub(lambda m: rep[re.escape(m.group(0))], text)
-    text = re.sub('\<(.*?)\>', '', text)
-    return text
+	"""
+	To remove all the html tags and replace some with specific strings
+	"""
+	rep = {"<br>": "\n", "<br/>": "\n", "<li>":  "\n"}
+	rep = dict((re.escape(k), v) for k, v in rep.items())
+
+	pattern = re.compile("|".join(rep.keys()))
+
+	text = pattern.sub(lambda m: rep[re.escape(m.group(0))], text)
+	text = re.sub('\<(.*?)\>', '', text)
+	return text
 
 
 def collect_text(soup, tag, attrs):
@@ -54,13 +59,3 @@ def collect_text(soup, tag, attrs):
 	for para_text in container:
 		text += f"{para_text.text}\n\n"
 	return text
-
-
-def check_discount(soup, attrs):
-	tag_list = TAG_LIST
-	for tag in tag_list:
-		text = collect_text(soup, tag, attrs)
-
-		if text:
-			return True
-	return False

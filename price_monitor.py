@@ -8,8 +8,8 @@ from scripts.helper.Save_File import save_text
 from scripts.helper.Read_File import read_csv
 from scripts.helper.Decorator import time_count
 
-import scripts.Api_Call as api_func
-import scripts.Soup_Call as soup_func
+import scripts.Api_Call as api_call
+import scripts.Soup_Call as soup_call
 
 from dotenv import load_dotenv
 
@@ -30,7 +30,10 @@ WEBSITE_ATTRS_LIST = {
 	'amazon': {'id': 'corePrice_feature_div'}
 }
 TAG_LIST = ['span', 'div', 'p']
-
+# PRICE_CHECKING_LIST = [
+# 	"amazon",
+# 	"bestbuy"
+# ]
 
 def get_domain(url):
 	"""
@@ -58,7 +61,7 @@ def price_compare(url, product_name, original_price):
 	 - product_name - Name of the product
 	 - original_price - Original price of the product
 	"""
-	tag_list = TAG_LIST
+	# price_checking_list = PRICE_CHECKING_LIST
 	docs_folder = DOCS_FOLDER
 	text_folder = TEXT_FOLDER
 
@@ -66,26 +69,21 @@ def price_compare(url, product_name, original_price):
 	domain_name = get_domain(url)
 
 	# TODO: call api or soup according to the domain name
-		
-	soup = get_soup(url)
 	
-
-	attrs = website_attrs_list[domain_name]
-	print(f"attrs: ${attrs}")
-	for tag in tag_list:
-		print(f"tag: ${tag}")
-		text = collect_text(soup, tag, attrs)
-		
-		if text:
-			break
-
-	if not text:
-		print("Empty scrapped content...")
-		save_text(str(soup), "new", docs_folder, text_folder)
-		sys.exit(1)
+	if domain_name == "amazon":
+		matches = get_soup_price(url, domain_name)
+	elif domain_name == "bestbuy":
+		# api_call
+		pass
+	# TODO: checking price according to user input instead of url
+	# if price_checking_choice == price_checking_list[0]:
+	# 	matches = get_soup_price(url, domain_name)
+	# elif price_checking_choice == price_checking_list[1]:
+	# 	# api_call
+	# 	pass
+	else:
+		print("Not matching the domain name list")
 	
-	matches = [float(match) for match in re.findall(r'\d+\.?\d+', text)]
-
 	for match in matches:
 		if original_price > match:
 			save_text(str(match), product_name, docs_folder, text_folder)
@@ -96,6 +94,31 @@ def price_compare(url, product_name, original_price):
 		
 	print("Price not change...")
 	return False, None
+
+
+def get_soup_price(url, domain_name):
+	tag_list = TAG_LIST
+
+	website_attrs_list = WEBSITE_ATTRS_LIST
+
+	soup = soup_call.get_soup(url)
+
+	attrs = website_attrs_list[domain_name]
+	# print(f"attrs: ${attrs}")
+	for tag in tag_list:
+		# print(f"tag: ${tag}")
+		text = soup_call.collect_text(soup, tag, attrs)
+		
+		if text:
+			break
+
+	if not text:
+		print("Empty scrapped content...")
+		sys.exit(1)
+	
+	matches = [float(match) for match in re.findall(r'\d+\.?\d+', text)]
+
+	return matches
 
 
 # TODO: machine learning engine to determine category of product, then search related website	
